@@ -1,0 +1,9 @@
+target/
+.m2/
+.git
+.idea
+*.md
+*.log
+**/node_modules
+# Keep secrets out of the build context — they are injected at runtime, not baked into the image.
+.env

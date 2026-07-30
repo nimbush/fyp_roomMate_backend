@@ -1,0 +1,63 @@
+services:
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: roommate_filter
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    # Host port 5433 is claimed by an unrelated leftover Postgres that does NOT belong to this
+    # stack (different cluster, different data). Publishing on 5434 keeps host-side tooling —
+    # IntelliJ, `./mvnw spring-boot:run` — pointed at this container's database.
+    ports:
+      - "5434:5432"
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - db
+      - redis
+    environment:
+      SERVER_PORT: ${SERVER_PORT}
+      DB_URL: jdbc:postgresql://db:5432/roommate_filter
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      IMAGE_FOLDER: /app/images
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JPA_HIBERNATE_DDL_AUTO: ${JPA_HIBERNATE_DDL_AUTO}
+      JPA_SHOW_SQL: ${JPA_SHOW_SQL}
+      JPA_FORMAT_SQL: ${JPA_FORMAT_SQL}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      SUPPORT_RECIPIENT: ${SUPPORT_RECIPIENT}
+    ports:
+      - "${SERVER_PORT}:${SERVER_PORT}"
+    volumes:
+      - image_data:/app/images
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:${SERVER_PORT}/actuator/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+volumes:
+  db_data:
+  redis_data:
+  image_data:
