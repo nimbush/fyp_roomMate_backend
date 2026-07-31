@@ -190,4 +190,45 @@ class CompatibilityServiceTest {
         double score = service.computeScore(a, b);
         assertThat(score).isGreaterThan(0.0);
     }
+
+    @Test
+    void candidate_with_gender_any_is_not_excluded_by_single_sex_preference() {
+        // Regression for BE-11: "ANY" was compared against "male"/"female" and never matched, so a
+        // user who only wanted male roommates saw an empty discovery deck.
+        AppUser a = baseUser();
+        a.setPreferredMale(true);
+        a.setPreferredFemale(false); // wants male roommates only
+
+        AppUser b = identicalComplementaryUser();
+        b.setRoommateGender("ANY");
+
+        assertThat(service.isGenderCompatible(a, b)).isTrue();
+        assertThat(service.computeScore(a, b)).isGreaterThan(0.0);
+    }
+
+    @Test
+    void gender_any_is_case_insensitive() {
+        AppUser a = baseUser();
+        a.setPreferredMale(false);
+        a.setPreferredFemale(true); // wants female roommates only
+
+        AppUser b = identicalComplementaryUser();
+        b.setRoommateGender("any");
+
+        assertThat(service.isGenderCompatible(a, b)).isTrue();
+    }
+
+    @Test
+    void single_sex_preference_still_excludes_the_other_sex() {
+        // "ANY" must not weaken the real exclusion rule.
+        AppUser a = baseUser();
+        a.setPreferredMale(true);
+        a.setPreferredFemale(false);
+
+        AppUser b = identicalComplementaryUser();
+        b.setRoommateGender("Female");
+
+        assertThat(service.isGenderCompatible(a, b)).isFalse();
+        assertThat(service.computeScore(a, b)).isZero();
+    }
 }

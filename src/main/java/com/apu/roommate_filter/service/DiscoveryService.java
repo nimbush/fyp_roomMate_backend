@@ -34,8 +34,10 @@ public class DiscoveryService {
                 .stream()
                 .filter(c -> !c.getId().equals(userId))
                 .filter(c -> !alreadySwiped.contains(c.getId()))
+                // Exclude on the gender rule itself. Filtering on `score > 0` also dropped users
+                // who were allowed but simply scored zero, and hid the "ANY" bug (BE-11).
+                .filter(c -> compatibilityService.isGenderCompatible(currentUser, c))
                 .map(c -> toDto(c, compatibilityService.computeScore(currentUser, c)))
-                .filter(dto -> dto.getCompatibilityScore() > 0)
                 .sorted((a, b) -> Double.compare(b.getCompatibilityScore(), a.getCompatibilityScore()))
                 .toList();
     }

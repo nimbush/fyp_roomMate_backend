@@ -24,6 +24,9 @@ public class CompatibilityService {
     /** Number of profile fields {@link #completeness(AppUser)} inspects. */
     private static final int SCORED_FIELD_COUNT = 8;
 
+    /** {@code roommateGender} value meaning "I don't identify with a single-sex bucket". */
+    private static final String GENDER_ANY = "ANY";
+
     public double computeScore(AppUser a, AppUser b) {
         if (!isGenderCompatible(a, b)) return 0.0;
 
@@ -44,7 +47,13 @@ public class CompatibilityService {
 
     // ── Hard exclusion ────────────────────────────────────────────────────────
 
-    private boolean isGenderCompatible(AppUser a, AppUser b) {
+    /**
+     * Whether the two users' gender preferences allow them to be shown to each other at all.
+     *
+     * <p>Exposed so callers (the discovery deck) can filter on exclusion explicitly instead of
+     * inferring it from a score of zero — a legitimately incompatible pair also scores zero.
+     */
+    public boolean isGenderCompatible(AppUser a, AppUser b) {
         return acceptsGender(a, b.getRoommateGender())
                 && acceptsGender(b, a.getRoommateGender());
     }
@@ -54,7 +63,11 @@ public class CompatibilityService {
         boolean wantsFemale = user.isPreferredFemale();
         if (!wantsMale && !wantsFemale) return true; // no preference – accept anyone
         if (wantsMale && wantsFemale)   return true; // accepts both
-        if (candidateGender == null || candidateGender.isBlank()) return true; // unset – don't exclude
+        // Unset or "ANY" is not a claim to be male/female, so a single-sex preference has nothing
+        // to exclude on. Treating "ANY" as a mismatch made every such user invisible (BE-11).
+        if (candidateGender == null
+                || candidateGender.isBlank()
+                || GENDER_ANY.equalsIgnoreCase(candidateGender.trim())) return true;
         if (wantsMale)   return "male".equalsIgnoreCase(candidateGender.trim());
         return "female".equalsIgnoreCase(candidateGender.trim());
     }
